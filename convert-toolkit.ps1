@@ -47,31 +47,41 @@ function Convert-Mp3ToOpus {
         [string]$Item,
         [int]$Depth = 0,
         [string]$Directory = ".",
-        [string]$Bitrate = "128k"
-
+        [string]$Bitrate = "128k",
+        [bool]$Overwrite = $false
     )
-    if ($Item) {
+    if ($Item){
         $file = Get-Item $Item -ErrorAction Stop
         if ($VerbosePreference -eq 'Continue'){
-        ffmpeg.exe -i $file.FullName -c:a libopus -b:a $Bitrate(Join-Path $file.DirectoryName "$($file.BaseName).opus")
+            ffmpeg.exe -i $file.FullName -c:a libopus -b:a $Bitrate (Join-Path $file.DirectoryName "$($file.BaseName).opus")
         }
         else{
-        ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libopus -b:a $Bitrate(Join-Path $file.DirectoryName "$($file.BaseName).opus")
+            ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libopus -b:a $Bitrate (Join-Path $file.DirectoryName "$($file.BaseName).opus")
         }
-
-    } else {
+        if ($Overwrite -and $LASTEXITCODE -eq 0){
+            Remove-Item $Item
+        }
+    } 
+    else{
         if ($VerbosePreference -eq 'Continue'){
             Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp3' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate(Join-Path $_.DirectoryName "$($_.BaseName).opus")
+                ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate (Join-Path $_.DirectoryName "$($_.BaseName).opus")
+                if ($Overwrite -and $LASTEXITCODE -eq 0){
+                    Remove_Item $_.FullName
+                }
+
             }
         }
         else{
             Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp3' } |
             ForEach-Object {
-                ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate(Join-Path $_.DirectoryName "$($_.BaseName).opus")
+                ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate (Join-Path $_.DirectoryName "$($_.BaseName).opus")
+                if ($Overwrite -and $LASTEXITCODE -eq 0){
+                    Remove_Item $_.FullName
+                }                
             }
         }
     }
