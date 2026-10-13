@@ -7,7 +7,7 @@ Collection of Cdmlets for converting between diffrent file types, act's as a wra
 </ul>
 
 ## requirements
-requires PowerShell 5.1 or PowerShell 7+
+PowerShell 7+
 FFmpeg available through system PATH
 
 ### FFmpeg Installation

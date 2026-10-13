@@ -37,10 +37,12 @@ function Convert-Mp3ToOpus {
         Amount of subdirectories to search, (default)0 = top level only. 
     .PARAMETER Bitrate
         Opus bitrate. Defaults to 128k.
+    .PARAMETER Verbose
+        Select if to have the output be verbose
     .NOTES
         Outputs files using a 128 kbps bitrate
-    
     #>
+    [CmdletBinding()]
     param(
         [string]$Item,
         [int]$Depth = 0,
@@ -50,13 +52,28 @@ function Convert-Mp3ToOpus {
     )
     if ($Item) {
         $file = Get-Item $Item -ErrorAction Stop
-        ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate(Join-Path $file.DirectoryName "$($file.BaseName).opus")
+        if ($VerbosePreference -eq 'Continue'){
+        ffmpeg.exe -i $file.FullName -c:a libopus -b:a $Bitrate(Join-Path $file.DirectoryName "$($file.BaseName).opus")
+        }
+        else{
+        ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libopus -b:a $Bitrate(Join-Path $file.DirectoryName "$($file.BaseName).opus")
+        }
+
     } else {
-        Get-ChildItem -Depth $Depth -Path $Directory |
+        if ($VerbosePreference -eq 'Continue'){
+            Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp3' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate(Join-Path $_.DirectoryName "$($file.BaseName).opus")
+                ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate(Join-Path $_.DirectoryName "$($_.BaseName).opus")
             }
+        }
+        else{
+            Get-ChildItem -Depth $Depth -Path $Directory |
+            Where-Object { $_.Extension -eq '.mp3' } |
+            ForEach-Object {
+                ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate(Join-Path $_.DirectoryName "$($_.BaseName).opus")
+            }
+        }
     }
 }
 
