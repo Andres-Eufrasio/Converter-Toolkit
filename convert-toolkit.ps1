@@ -14,19 +14,22 @@ function Convert-OpusToMp3 {
         Converts a specified Opus file or searches a directory for Opus files and converts them to MP3 using FFmpeg
     .DESCRIPTION
         Converts a specified Opus file or searches a directory for Opus files and converts them to MP3 using FFmpeg
-        By default it does not replace the original file, and the bitrate is 320k.
+        By default it does not replace the original file, and the bitrate is 192k.
     .PARAMETER Item
         Path to a single Opus file. If omitted, -Directory is searched
     .PARAMETER Directory
         Directory to search for Opus files. Defaults to the current directory.
     .PARAMETER Depth
-        Amount of subdirectories to search, (default)0 = top level only.
+        Number of subdirectory levels to search, (default)0 = top level only.
     .PARAMETER Bitrate
-        MP3 bitrate. Defaults to 192kbps.
-    .PARAMETER Overwrite
-        Removes the original Opus file after a successful conversion.
+        MP3 bitrate. Defaults to 192k.
     .PARAMETER Verbose
-        Select if to have the output be verbose
+        Select to have verbose output.
+    .PARAMETER Replace
+        Select to replace the original files.
+    .PARAMETER Overwrite
+        Select if preexisting files should be overwritten.
+        Uses arguments y and n, otherwise defaults to prompting per item.
     .PARAMETER WhatIf
         Shows what actions would be performed without executing them.
     .EXAMPLE
@@ -34,31 +37,41 @@ function Convert-OpusToMp3 {
         Converts file.opus to file.mp3
     .EXAMPLE
         Convert-OpusToMp3 -Directory ./opussoundkit -Depth 3
-        Converts all opus files in opussoundkit and up to 3 levels deeper to mp3.
+        Converts all Opus files in opussoundkit and up to 3 levels deeper to MP3.
     .EXAMPLE
-        Convert-OpusToMp3 -Item file.opus -Overwrite -Bitrate 320k 
-        Converts file.opus into an mp3 file with a bitrate of 320kbps and removes the original file
+        Convert-OpusToMp3 -Item file.opus -Replace -Bitrate 320k
+        Converts file.opus into an MP3 file with a bitrate of 320kbps and removes the original file
+    .EXAMPLE
+        Convert-OpusToMp3 -Replace -Overwrite y
+        Converts all Opus files to MP3 and,
+        if any MP3 files with the same name already exist, overwrites them.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [string]$Item,
         [string]$Directory = ".",
         [int]$Depth = 0,
-        [string]$Bitrate = "192K",
-        [switch]$Overwrite
+        [string]$Bitrate = "192k",
+        [switch]$Replace,
+        [ValidateSet("","y","n")]
+        [string]$Overwrite = ""
     )
+    if ($Overwrite -ne ""){
+        $Overwrite = "-" + $Overwrite
+    }
+    $codec_lib = "libmp3lame"
     if ($Item){
         $file = Get-Item $Item -ErrorAction Stop
         $output = Join-Path $file.DirectoryName "$($file.BaseName).mp3"
         if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to MP3")) {
             if ($VerbosePreference -eq 'Continue'){
-                ffmpeg.exe -i $file.FullName -c:a libmp3lame -b:a $Bitrate $output
+                ffmpeg.exe $Overwrite -i $file.FullName -c:a $codec_lib -b:a $Bitrate $output
             }
             else{
-                ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libmp3lame -b:a $Bitrate $output
+                ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $file.FullName -c:a $codec_lib -b:a $Bitrate $output
             }
 
-            if ($Overwrite -and $LASTEXITCODE -eq 0){
+            if ($Replace -and $LASTEXITCODE -eq 0){
                 Remove-Item $file.FullName
             }
         }
@@ -70,8 +83,8 @@ function Convert-OpusToMp3 {
             ForEach-Object {
                 $output = Join-Path $_.DirectoryName "$($_.BaseName).mp3"
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to MP3")) {
-                    ffmpeg.exe -i $_.FullName -c:a libmp3lame -b:a $Bitrate $output
-                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                    ffmpeg.exe $Overwrite -i $_.FullName -c:a $codec_lib -b:a $Bitrate $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
                         Remove-Item $_.FullName
                     }
                 }
@@ -83,8 +96,8 @@ function Convert-OpusToMp3 {
             ForEach-Object {
                 $output = Join-Path $_.DirectoryName "$($_.BaseName).mp3"
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to MP3")) {
-                    ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libmp3lame -b:a $Bitrate $output
-                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                    ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $_.FullName -c:a $codec_lib -b:a $Bitrate $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
                         Remove-Item $_.FullName
                     }
                 }
@@ -96,30 +109,40 @@ function Convert-OpusToMp3 {
 function Convert-Mp3ToOpus {
     <#
     .SYNOPSIS
-        Converts a specified MP3 file  of searches a directory for MP3 files and converts them to Opus using FFmpeg
+        Converts a specified MP3 file or searches a directory for MP3 files and converts them to Opus using FFmpeg
     .DESCRIPTION
-        Converts a specified MP3 file  of searches a directory for MP3 files and converts them to Opus using FFmpeg
-        By default it does not replace the default file, and the bitrate is 128k.
+        Converts a specified MP3 file or searches a directory for MP3 files and converts them to Opus using FFmpeg
+        By default it does not replace the original file, and the bitrate is 128k.
     .PARAMETER Item
-        Path to a single MP3 file. If ommited, -Directory is searched
+        Path to a single MP3 file. If omitted, -Directory is searched
     .PARAMETER Directory
         Directory to search for MP3 files. Defaults to the current directory.
     .PARAMETER Depth
-        Amount of subdirectories to search, (default)0 = top level only. 
-    .PARAMETER Bitrate         Opus bitrate. Defaults to 128k.
+        Number of subdirectory levels to search, (default)0 = top level only.
+    .PARAMETER Bitrate
+        Opus bitrate. Defaults to 128k.
     .PARAMETER Verbose
-        Select if to have the output be verbose
+        Select to have verbose output.
+    .PARAMETER Replace
+        Select to replace the original files.
+    .PARAMETER Overwrite
+        Select if preexisting files should be overwritten.
+        Uses arguments y and n, otherwise defaults to prompting per item.
     .PARAMETER WhatIf
         Shows what actions would be performed without executing them.
     .EXAMPLE
-        Convert-Mp3ToOpus -Item file.opus
+        Convert-Mp3ToOpus -Item file.mp3
         Converts file.mp3 to file.opus
     .EXAMPLE
         Convert-Mp3ToOpus -Directory ./opussoundkit -Depth 3
-        Converts all mp3 files in opussoundkit and up to 3 files deeper to opus.
+        Converts all MP3 files in opussoundkit and up to 3 levels deeper to Opus.
     .EXAMPLE
-        Convert-Mp3ToOpus -Input file.opus -Overwrite -Bitrate 192K
-        Converts file.mp3 into a opus file with a bitrate of 192kbps and removes the orignial file
+        Convert-Mp3ToOpus -Item file.mp3 -Replace -Bitrate 192k
+        Converts file.mp3 into an Opus file with a bitrate of 192kbps and removes the original file
+    .EXAMPLE
+        Convert-Mp3ToOpus -Replace -Overwrite y
+        Converts all MP3 files to Opus and,
+        if any Opus files with the same name already exist, overwrites them.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -127,24 +150,30 @@ function Convert-Mp3ToOpus {
         [string]$Directory = ".",
         [int]$Depth = 0,
         [string]$Bitrate = "128k",
-        [switch]$Overwrite  
+        [switch]$Replace,
+        [ValidateSet("","y","n")]
+        [string]$Overwrite = ""
+
     )
+    if ($overwrite -ne ""){
+        $overwrite = "-"+ $overwrite
+    }
+    $codec_lib = "libopus"
     if ($Item){
-        $file = Get-Item $Item -ErrorAction Stop
+                $file = Get-Item $Item -ErrorAction Stop
         $output = Join-Path $file.DirectoryName "$($file.BaseName).opus"
         if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to Opus")) {
             if ($VerbosePreference -eq 'Continue'){
-                ffmpeg.exe -i $file.FullName -c:a libopus -b:a $Bitrate $output
+                ffmpeg.exe $overwrite -i $file.FullName -c:a $codec_lib -b:a $Bitrate $output
             }
             else{
-                ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libopus -b:a $Bitrate $output
+                ffmpeg.exe $overwrite -hide_banner -loglevel error -nostats -i $file.FullName -c:a $codec_lib -b:a $Bitrate $output
             }
 
-            if ($Overwrite -and $LASTEXITCODE -eq 0){
-                Remove-Item $Item
-            }
+            if ($Replace -and $LASTEXITCODE -eq 0){
+                Remove-Item $file.FullName
+           }
         }
-
     } 
     else{
         if ($VerbosePreference -eq 'Continue'){
@@ -153,8 +182,8 @@ function Convert-Mp3ToOpus {
             ForEach-Object {
                 $output = Join-Path $_.DirectoryName "$($_.BaseName).opus"
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to Opus")) {
-                    ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate $output
-                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                    ffmpeg.exe $overwrite -i $_.FullName -c:a $codec_lib -b:a $Bitrate $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
                         Remove-Item $_.FullName
                     }
                 }
@@ -166,8 +195,8 @@ function Convert-Mp3ToOpus {
             ForEach-Object {
                 $output = Join-Path $_.DirectoryName "$($_.BaseName).opus"
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to Opus")) {
-                    ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate $output
-                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                    ffmpeg.exe $overwrite -hide_banner -loglevel error -nostats -i $_.FullName -c:a $codec_lib -b:a $Bitrate $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
                         Remove-Item $_.FullName
                     }
                 }
@@ -176,37 +205,198 @@ function Convert-Mp3ToOpus {
     }
 }
 
+
+
 function Convert-Mp4ToMp3 {
+    <#
+    .SYNOPSIS
+        Converts a specified MP4 file or searches a directory for MP4 files and converts them to MP3 using FFmpeg
+    .DESCRIPTION
+        Converts a specified MP4 file or searches a directory for MP4 files and converts them to MP3 using FFmpeg
+        By default it does not replace the original file, and the bitrate is 192k.
+    .PARAMETER Item
+        Path to a single MP4 file. If omitted, -Directory is searched
+    .PARAMETER Directory
+        Directory to search for MP4 files. Defaults to the current directory.
+    .PARAMETER Depth
+        Number of subdirectory levels to search, (default)1 = one level below the top level.
+    .PARAMETER Bitrate
+        MP3 bitrate. Defaults to 192k.
+    .PARAMETER Verbose
+        Select to have verbose output.
+    .PARAMETER Replace
+        Select to replace the original files.
+    .PARAMETER Overwrite
+        Select if preexisting files should be overwritten.
+        Uses arguments y and n, otherwise defaults to prompting per item.
+    .PARAMETER WhatIf
+        Shows what actions would be performed without executing them.
+    .EXAMPLE
+        Convert-Mp4ToMp3 -Item file.mp4
+        Converts file.mp4 to file.mp3
+    .EXAMPLE
+        Convert-Mp4ToMp3 -Directory ./videos -Depth 3
+        Converts all MP4 files in videos and up to 3 levels deeper to MP3.
+    .EXAMPLE
+        Convert-Mp4ToMp3 -Item file.mp4 -Replace -Bitrate 320k
+        Converts file.mp4 into an MP3 file with a bitrate of 320kbps and removes the original file
+    .EXAMPLE
+        Convert-Mp4ToMp3 -Replace -Overwrite y
+        Converts all MP4 files to MP3 and,
+        if any MP3 files with the same name already exist, overwrites them.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
     param(
+        [string]$Item,
+        [string]$Directory = ".",
         [int]$Depth = 1,
-        [string]$Item
+        [string]$Bitrate = "192k",
+        [switch]$Replace,
+        [ValidateSet("","y","n")]
+        [string]$Overwrite = ""
     )
-    if ($Item) {
+    if ($Overwrite -ne ""){
+        $Overwrite = "-" + $Overwrite
+    }
+    $codec_lib = "libmp3lame"
+    if ($Item){
         $file = Get-Item $Item -ErrorAction Stop
-        ffmpeg.exe -i $file.FullName -c:a libmp3lame -q:a 2 -ac 0(Join-Path $file.DirectoryName "$($file.BaseName).mp3")
-    } else {
-        Get-ChildItem -Depth $Depth |
+        $output = Join-Path $file.DirectoryName "$($file.BaseName).mp3"
+        if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to MP3")) {
+            if ($VerbosePreference -eq 'Continue'){
+                ffmpeg.exe $Overwrite -i $file.FullName -c:a $codec_lib -b:a $Bitrate $output
+            }
+            else{
+                ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $file.FullName -c:a $codec_lib -b:a $Bitrate $output
+            }
+
+            if ($Replace -and $LASTEXITCODE -eq 0){
+                Remove-Item $file.FullName
+            }
+        }
+    }
+    else{
+        if ($VerbosePreference -eq 'Continue'){
+            Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp4' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a libmp3lame -q:a 2 -ac 0(Join-Path $_.DirectoryName "$($file.BaseName).mp3")
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).mp3"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to MP3")) {
+                    ffmpeg.exe $Overwrite -i $_.FullName -c:a $codec_lib -b:a $Bitrate $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
+                        Remove-Item $_.FullName
+                    }
+                }
             }
+        }
+        else{
+            Get-ChildItem -Depth $Depth -Path $Directory |
+            Where-Object { $_.Extension -eq '.mp4' } |
+            ForEach-Object {
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).mp3"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to MP3")) {
+                    ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $_.FullName -c:a $codec_lib -b:a $Bitrate $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
+                        Remove-Item $_.FullName
+                    }
+                }
+            }
+        }
     }
 }
 
 function Convert-Mp4ToWav {
+    <#
+    .SYNOPSIS
+        Converts a specified MP4 file or searches a directory for MP4 files and converts them to WAV using FFmpeg
+    .DESCRIPTION
+        Converts a specified MP4 file or searches a directory for MP4 files and converts them to WAV using FFmpeg
+        By default it does not replace the original file. The output is 16-bit PCM at a 44100 Hz sample rate.
+    .PARAMETER Item
+        Path to a single MP4 file. If omitted, -Directory is searched
+    .PARAMETER Directory
+        Directory to search for MP4 files. Defaults to the current directory.
+    .PARAMETER Depth
+        Number of subdirectory levels to search, (default)1 = one level below the top level.
+    .PARAMETER Verbose
+        Select to have verbose output.
+    .PARAMETER Replace
+        Select to replace the original files.
+    .PARAMETER Overwrite
+        Select if preexisting files should be overwritten.
+        Uses arguments y and n, otherwise defaults to prompting per item.
+    .PARAMETER WhatIf
+        Shows what actions would be performed without executing them.
+    .EXAMPLE
+        Convert-Mp4ToWav -Item file.mp4
+        Converts file.mp4 to file.wav
+    .EXAMPLE
+        Convert-Mp4ToWav -Directory ./videos -Depth 3
+        Converts all MP4 files in videos and up to 3 levels deeper to WAV.
+    .EXAMPLE
+        Convert-Mp4ToWav -Item file.mp4 -Replace
+        Converts file.mp4 into a WAV file and removes the original file
+    .EXAMPLE
+        Convert-Mp4ToWav -Replace -Overwrite y
+        Converts all MP4 files to WAV and,
+        if any WAV files with the same name already exist, overwrites them.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
     param(
+        [string]$Item,
+        [string]$Directory = ".",
         [int]$Depth = 1,
-        [string]$Item
+        [switch]$Replace,
+        [ValidateSet("","y","n")]
+        [string]$Overwrite = ""
     )
-    if ($Item) {
+    if ($Overwrite -ne ""){
+        $Overwrite = "-" + $Overwrite
+    }
+    $codec_lib = "pcm_s16le"
+    if ($Item){
         $file = Get-Item $Item -ErrorAction Stop
-        ffmpeg.exe -i $file.FullName -c:a pcm_s16le -ar 44100 -ac 2(Join-Path $file.DirectoryName "$($file.BaseName).mp3")
-    } else {
-        Get-ChildItem -Depth $Depth |
+        $output = Join-Path $file.DirectoryName "$($file.BaseName).wav"
+        if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to WAV")) {
+            if ($VerbosePreference -eq 'Continue'){
+                ffmpeg.exe $Overwrite -i $file.FullName -c:a $codec_lib -ar 44100 $output
+            }
+            else{
+                ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $file.FullName -c:a $codec_lib -ar 44100 $output
+            }
+
+            if ($Replace -and $LASTEXITCODE -eq 0){
+                Remove-Item $file.FullName
+            }
+        }
+    }
+    else{
+        if ($VerbosePreference -eq 'Continue'){
+            Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp4' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a pcm_s16le -ar 44100 -ac 2(Join-Path $_.DirectoryName "$($file.BaseName).mp3")
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).wav"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to WAV")) {
+                    ffmpeg.exe $Overwrite -i $_.FullName -c:a $codec_lib -ar 44100 $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
+                        Remove-Item $_.FullName
+                    }
+                }
             }
+        }
+        else{
+            Get-ChildItem -Depth $Depth -Path $Directory |
+            Where-Object { $_.Extension -eq '.mp4' } |
+            ForEach-Object {
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).wav"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to WAV")) {
+                    ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $_.FullName -c:a $codec_lib -ar 44100 $output
+                    if ($Replace -and $LASTEXITCODE -eq 0){
+                        Remove-Item $_.FullName
+                    }
+                }
+            }
+        }
     }
 }
 
