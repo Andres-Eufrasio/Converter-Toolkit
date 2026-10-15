@@ -311,13 +311,15 @@ function Convert-Mp4ToWav {
         Converts a specified MP4 file or searches a directory for MP4 files and converts them to WAV using FFmpeg
     .DESCRIPTION
         Converts a specified MP4 file or searches a directory for MP4 files and converts them to WAV using FFmpeg
-        By default it does not replace the original file. The output is 16-bit PCM at a 44100 Hz sample rate.
+        By default it does not replace the original file. The output is 16-bit PCM at a 48000 Hz sample rate.
     .PARAMETER Item
         Path to a single MP4 file. If omitted, -Directory is searched
     .PARAMETER Directory
         Directory to search for MP4 files. Defaults to the current directory.
     .PARAMETER Depth
         Number of subdirectory levels to search, (default)1 = one level below the top level.
+    .PARAMETER SampleRate
+        Output sample rate in Hz. Defaults to 48000.
     .PARAMETER Verbose
         Select to have verbose output.
     .PARAMETER Replace
@@ -334,8 +336,8 @@ function Convert-Mp4ToWav {
         Convert-Mp4ToWav -Directory ./videos -Depth 3
         Converts all MP4 files in videos and up to 3 levels deeper to WAV.
     .EXAMPLE
-        Convert-Mp4ToWav -Item file.mp4 -Replace
-        Converts file.mp4 into a WAV file and removes the original file
+        Convert-Mp4ToWav -Item file.mp4 -Replace -SampleRate 44100
+        Converts file.mp4 into a WAV file with a sample rate of 44100 Hz and removes the original file
     .EXAMPLE
         Convert-Mp4ToWav -Replace -Overwrite y
         Converts all MP4 files to WAV and,
@@ -346,6 +348,7 @@ function Convert-Mp4ToWav {
         [string]$Item,
         [string]$Directory = ".",
         [int]$Depth = 1,
+        [int]$SampleRate = 48000,
         [switch]$Replace,
         [ValidateSet("","y","n")]
         [string]$Overwrite = ""
@@ -359,10 +362,10 @@ function Convert-Mp4ToWav {
         $output = Join-Path $file.DirectoryName "$($file.BaseName).wav"
         if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to WAV")) {
             if ($VerbosePreference -eq 'Continue'){
-                ffmpeg.exe $Overwrite -i $file.FullName -c:a $codec_lib -ar 44100 $output
+                ffmpeg.exe $Overwrite -i $file.FullName -c:a $codec_lib -ar $SampleRate $output
             }
             else{
-                ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $file.FullName -c:a $codec_lib -ar 44100 $output
+                ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $file.FullName -c:a $codec_lib -ar $SampleRate $output
             }
 
             if ($Replace -and $LASTEXITCODE -eq 0){
@@ -377,7 +380,7 @@ function Convert-Mp4ToWav {
             ForEach-Object {
                 $output = Join-Path $_.DirectoryName "$($_.BaseName).wav"
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to WAV")) {
-                    ffmpeg.exe $Overwrite -i $_.FullName -c:a $codec_lib -ar 44100 $output
+                    ffmpeg.exe $Overwrite -i $_.FullName -c:a $codec_lib -ar $SampleRate $output
                     if ($Replace -and $LASTEXITCODE -eq 0){
                         Remove-Item $_.FullName
                     }
@@ -390,7 +393,7 @@ function Convert-Mp4ToWav {
             ForEach-Object {
                 $output = Join-Path $_.DirectoryName "$($_.BaseName).wav"
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to WAV")) {
-                    ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $_.FullName -c:a $codec_lib -ar 44100 $output
+                    ffmpeg.exe $Overwrite -hide_banner -loglevel error -nostats -i $_.FullName -c:a $codec_lib -ar $SampleRate $output
                     if ($Replace -and $LASTEXITCODE -eq 0){
                         Remove-Item $_.FullName
                     }
