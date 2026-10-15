@@ -9,19 +9,87 @@ else{
 
 
 function Convert-OpusToMp3 {
+    <#
+    .SYNOPSIS
+        Converts a specified Opus file or searches a directory for Opus files and converts them to MP3 using FFmpeg
+    .DESCRIPTION
+        Converts a specified Opus file or searches a directory for Opus files and converts them to MP3 using FFmpeg
+        By default it does not replace the original file, and the bitrate is 320k.
+    .PARAMETER Item
+        Path to a single Opus file. If omitted, -Directory is searched
+    .PARAMETER Directory
+        Directory to search for Opus files. Defaults to the current directory.
+    .PARAMETER Depth
+        Amount of subdirectories to search, (default)0 = top level only.
+    .PARAMETER Bitrate
+        MP3 bitrate. Defaults to 192kbps.
+    .PARAMETER Overwrite
+        Removes the original Opus file after a successful conversion.
+    .PARAMETER Verbose
+        Select if to have the output be verbose
+    .PARAMETER WhatIf
+        Shows what actions would be performed without executing them.
+    .EXAMPLE
+        Convert-OpusToMp3 -Item file.opus
+        Converts file.opus to file.mp3
+    .EXAMPLE
+        Convert-OpusToMp3 -Directory ./opussoundkit -Depth 3
+        Converts all opus files in opussoundkit and up to 3 levels deeper to mp3.
+    .EXAMPLE
+        Convert-OpusToMp3 -Item file.opus -Overwrite -Bitrate 320k 
+        Converts file.opus into an mp3 file with a bitrate of 320kbps and removes the original file
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
     param(
-        [int]$Depth = 1,
-        [string]$Item
+        [string]$Item,
+        [string]$Directory = ".",
+        [int]$Depth = 0,
+        [string]$Bitrate = "192K",
+        [switch]$Overwrite
     )
-    if ($Item) {
+    if ($Item){
         $file = Get-Item $Item -ErrorAction Stop
-        ffmpeg.exe -i $file.FullName -c:a libmp3lame -b:a 320k (Join-Path $file.DirectoryName "$($file.BaseName).mp3")
-    } else {
-        Get-ChildItem -Depth $Depth |
+        $output = Join-Path $file.DirectoryName "$($file.BaseName).mp3"
+        if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to MP3")) {
+            if ($VerbosePreference -eq 'Continue'){
+                ffmpeg.exe -i $file.FullName -c:a libmp3lame -b:a $Bitrate $output
+            }
+            else{
+                ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libmp3lame -b:a $Bitrate $output
+            }
+
+            if ($Overwrite -and $LASTEXITCODE -eq 0){
+                Remove-Item $file.FullName
+            }
+        }
+    }
+    else{
+        if ($VerbosePreference -eq 'Continue'){
+            Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.opus' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a libmp3lame -b:a 320k (Join-Path $_.DirectoryName "$($file.BaseName).mp3")
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).mp3"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to MP3")) {
+                    ffmpeg.exe -i $_.FullName -c:a libmp3lame -b:a $Bitrate $output
+                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                        Remove-Item $_.FullName
+                    }
+                }
             }
+        }
+        else{
+            Get-ChildItem -Depth $Depth -Path $Directory |
+            Where-Object { $_.Extension -eq '.opus' } |
+            ForEach-Object {
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).mp3"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to MP3")) {
+                    ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libmp3lame -b:a $Bitrate $output
+                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                        Remove-Item $_.FullName
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -73,9 +141,7 @@ function Convert-Mp3ToOpus {
             }
 
             if ($Overwrite -and $LASTEXITCODE -eq 0){
-                if ($PSCmdlet.ShouldProcess()) {
-                    Remove-Item $Item
-                }
+                Remove-Item $Item
             }
         }
 
@@ -89,9 +155,7 @@ function Convert-Mp3ToOpus {
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to Opus")) {
                     ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate $output
                     if ($Overwrite -and $LASTEXITCODE -eq 0){
-                        if ($PSCmdlet.ShouldProcess()) {
-                            Remove-Item $_.FullName
-                        }
+                        Remove-Item $_.FullName
                     }
                 }
             }
@@ -104,9 +168,7 @@ function Convert-Mp3ToOpus {
                 if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to Opus")) {
                     ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate $output
                     if ($Overwrite -and $LASTEXITCODE -eq 0){
-                        if ($PSCmdlet.ShouldProcess()) {
-                            Remove-Item $_.FullName
-                        }
+                        Remove-Item $_.FullName
                     }
                 }
             }
@@ -121,12 +183,12 @@ function Convert-Mp4ToMp3 {
     )
     if ($Item) {
         $file = Get-Item $Item -ErrorAction Stop
-        ffmpeg.exe -i $file.FullName -c:a libmp3lame -q:a 2 -ac 2(Join-Path $file.DirectoryName "$($file.BaseName).mp3")
+        ffmpeg.exe -i $file.FullName -c:a libmp3lame -q:a 2 -ac 0(Join-Path $file.DirectoryName "$($file.BaseName).mp3")
     } else {
         Get-ChildItem -Depth $Depth |
             Where-Object { $_.Extension -eq '.mp4' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a libmp3lame -q:a 2 -ac 2(Join-Path $_.DirectoryName "$($file.BaseName).mp3")
+                ffmpeg.exe -i $_.FullName -c:a libmp3lame -q:a 2 -ac 0(Join-Path $_.DirectoryName "$($file.BaseName).mp3")
             }
     }
 }
