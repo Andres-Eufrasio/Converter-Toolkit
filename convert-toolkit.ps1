@@ -29,59 +29,86 @@ function Convert-Mp3ToOpus {
     <#
     .SYNOPSIS
         Converts a specified MP3 file  of searches a directory for MP3 files and converts them to Opus using FFmpeg
+    .DESCRIPTION
+        Converts a specified MP3 file  of searches a directory for MP3 files and converts them to Opus using FFmpeg
+        By default it does not replace the default file, and the bitrate is 128k.
     .PARAMETER Item
         Path to a single MP3 file. If ommited, -Directory is searched
     .PARAMETER Directory
         Directory to search for MP3 files. Defaults to the current directory.
     .PARAMETER Depth
         Amount of subdirectories to search, (default)0 = top level only. 
-    .PARAMETER Bitrate
-        Opus bitrate. Defaults to 128k.
+    .PARAMETER Bitrate         Opus bitrate. Defaults to 128k.
     .PARAMETER Verbose
         Select if to have the output be verbose
-    .NOTES
-        Outputs files using a 128 kbps bitrate
+    .PARAMETER WhatIf
+        Shows what actions would be performed without executing them.
+    .EXAMPLE
+        Convert-Mp3ToOpus -Item file.opus
+        Converts file.mp3 to file.opus
+    .EXAMPLE
+        Convert-Mp3ToOpus -Directory ./opussoundkit -Depth 3
+        Converts all mp3 files in opussoundkit and up to 3 files deeper to opus.
+    .EXAMPLE
+        Convert-Mp3ToOpus -Input file.opus -Overwrite -Bitrate 192K
+        Converts file.mp3 into a opus file with a bitrate of 192kbps and removes the orignial file
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [string]$Item,
-        [int]$Depth = 0,
         [string]$Directory = ".",
+        [int]$Depth = 0,
         [string]$Bitrate = "128k",
-        [bool]$Overwrite = $false
+        [switch]$Overwrite  
     )
     if ($Item){
         $file = Get-Item $Item -ErrorAction Stop
-        if ($VerbosePreference -eq 'Continue'){
-            ffmpeg.exe -i $file.FullName -c:a libopus -b:a $Bitrate (Join-Path $file.DirectoryName "$($file.BaseName).opus")
+        $output = Join-Path $file.DirectoryName "$($file.BaseName).opus"
+        if ($PSCmdlet.ShouldProcess($output, "Convert '$($file.FullName)' to Opus")) {
+            if ($VerbosePreference -eq 'Continue'){
+                ffmpeg.exe -i $file.FullName -c:a libopus -b:a $Bitrate $output
+            }
+            else{
+                ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libopus -b:a $Bitrate $output
+            }
+
+            if ($Overwrite -and $LASTEXITCODE -eq 0){
+                if ($PSCmdlet.ShouldProcess()) {
+                    Remove-Item $Item
+                }
+            }
         }
-        else{
-            ffmpeg.exe -hide_banner -loglevel error -nostats -i $file.FullName -c:a libopus -b:a $Bitrate (Join-Path $file.DirectoryName "$($file.BaseName).opus")
-        }
-        if ($Overwrite -and $LASTEXITCODE -eq 0){
-            Remove-Item $Item
-        }
+
     } 
     else{
         if ($VerbosePreference -eq 'Continue'){
             Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp3' } |
             ForEach-Object {
-                ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate (Join-Path $_.DirectoryName "$($_.BaseName).opus")
-                if ($Overwrite -and $LASTEXITCODE -eq 0){
-                    Remove_Item $_.FullName
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).opus"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to Opus")) {
+                    ffmpeg.exe -i $_.FullName -c:a libopus -b:a $Bitrate $output
+                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                        if ($PSCmdlet.ShouldProcess()) {
+                            Remove-Item $_.FullName
+                        }
+                    }
                 }
-
             }
         }
         else{
             Get-ChildItem -Depth $Depth -Path $Directory |
             Where-Object { $_.Extension -eq '.mp3' } |
             ForEach-Object {
-                ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate (Join-Path $_.DirectoryName "$($_.BaseName).opus")
-                if ($Overwrite -and $LASTEXITCODE -eq 0){
-                    Remove_Item $_.FullName
-                }                
+                $output = Join-Path $_.DirectoryName "$($_.BaseName).opus"
+                if ($PSCmdlet.ShouldProcess($output, "Convert '$($_.FullName)' to Opus")) {
+                    ffmpeg.exe -hide_banner -loglevel error -nostats -i $_.FullName -c:a libopus -b:a $Bitrate $output
+                    if ($Overwrite -and $LASTEXITCODE -eq 0){
+                        if ($PSCmdlet.ShouldProcess()) {
+                            Remove-Item $_.FullName
+                        }
+                    }
+                }
             }
         }
     }
